@@ -379,70 +379,72 @@ nfdresult_t NFD_OpenDialog( const nfdchar_t *filterList,
         goto end;
     }
 
-    // Create dialog
-    HRESULT result = ::CoCreateInstance(::CLSID_FileOpenDialog, NULL,
-                                        CLSCTX_ALL, ::IID_IFileOpenDialog,
-                                        reinterpret_cast<void**>(&fileOpenDialog) );
+    {
+        // Create dialog
+        HRESULT result = ::CoCreateInstance(::CLSID_FileOpenDialog, NULL,
+                                            CLSCTX_ALL, ::IID_IFileOpenDialog,
+                                            reinterpret_cast<void**>(&fileOpenDialog) );
                                 
-    if ( !SUCCEEDED(result) )
-    {
-        NFDi_SetError("Could not create dialog.");
-        goto end;
-    }
-
-    // Build the filter list
-    if ( !AddFiltersToDialog( fileOpenDialog, filterList ) )
-    {
-        goto end;
-    }
-
-    // Set the default path
-    if ( !SetDefaultPath( fileOpenDialog, defaultPath ) )
-    {
-        goto end;
-    }    
-
-    // Show the dialog.
-    result = fileOpenDialog->Show(NULL);
-    if ( SUCCEEDED(result) )
-    {
-        // Get the file name
-        ::IShellItem *shellItem(NULL);
-        result = fileOpenDialog->GetResult(&shellItem);
         if ( !SUCCEEDED(result) )
         {
-            NFDi_SetError("Could not get shell item from dialog.");
-            goto end;
-        }
-        wchar_t *filePath(NULL);
-        result = shellItem->GetDisplayName(::SIGDN_FILESYSPATH, &filePath);
-        if ( !SUCCEEDED(result) )
-        {
-            NFDi_SetError("Could not get file path for selected.");
-            shellItem->Release();
+            NFDi_SetError("Could not create dialog.");
             goto end;
         }
 
-        CopyWCharToNFDChar( filePath, outPath );
-        CoTaskMemFree(filePath);
-        if ( !*outPath )
+        // Build the filter list
+        if ( !AddFiltersToDialog( fileOpenDialog, filterList ) )
         {
-            /* error is malloc-based, error message would be redundant */
-            shellItem->Release();
             goto end;
         }
 
-        nfdResult = NFD_OKAY;
-        shellItem->Release();
-    }
-    else if (result == HRESULT_FROM_WIN32(ERROR_CANCELLED) )
-    {
-        nfdResult = NFD_CANCEL;
-    }
-    else
-    {
-        NFDi_SetError("File dialog box show failed.");
-        nfdResult = NFD_ERROR;
+        // Set the default path
+        if ( !SetDefaultPath( fileOpenDialog, defaultPath ) )
+        {
+            goto end;
+        }    
+
+        // Show the dialog.
+        result = fileOpenDialog->Show(NULL);
+        if ( SUCCEEDED(result) )
+        {
+            // Get the file name
+            ::IShellItem *shellItem(NULL);
+            result = fileOpenDialog->GetResult(&shellItem);
+            if ( !SUCCEEDED(result) )
+            {
+                NFDi_SetError("Could not get shell item from dialog.");
+                goto end;
+            }
+            wchar_t *filePath(NULL);
+            result = shellItem->GetDisplayName(::SIGDN_FILESYSPATH, &filePath);
+            if ( !SUCCEEDED(result) )
+            {
+                NFDi_SetError("Could not get file path for selected.");
+                shellItem->Release();
+                goto end;
+            }
+
+            CopyWCharToNFDChar( filePath, outPath );
+            CoTaskMemFree(filePath);
+            if ( !*outPath )
+            {
+                /* error is malloc-based, error message would be redundant */
+                shellItem->Release();
+                goto end;
+            }
+
+            nfdResult = NFD_OKAY;
+            shellItem->Release();
+        }
+        else if (result == HRESULT_FROM_WIN32(ERROR_CANCELLED) )
+        {
+            nfdResult = NFD_CANCEL;
+        }
+        else
+        {
+            NFDi_SetError("File dialog box show failed.");
+            nfdResult = NFD_ERROR;
+        }
     }
 
 end:
